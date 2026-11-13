@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=HaloBattery
+Exec=halobattery
+Icon=halobattery
+Categories=Utility;System;
+Terminal=false
+Keywords=wails
+Version=1.0
+StartupNotify=false

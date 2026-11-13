@@ -1,0 +1,85 @@
+# Feel free to remove those if you don't want/need to use them.
+# Make sure to check the documentation at https://nfpm.goreleaser.com
+#
+# The lines below are called `modelines`. See `:help modeline`
+
+name: "halobattery"
+arch: ${GOARCH}
+platform: "linux"
+version: "1.0.0"
+section: "default"
+priority: "extra"
+maintainer: "HaloBattery contributors"
+description: "Battery levels for wireless mice, keyboards and headsets"
+vendor: "HaloBattery contributors"
+homepage: "https://github.com/STIFLEUR390/HaloBattery"
+license: "MIT"
+release: "1"
+
+contents:
+  - src: "./bin/halobattery"
+    dst: "/usr/bin/halobattery"
+  - src: "./build/linux/icons/halobattery-128.png"
+    dst: "/usr/share/icons/hicolor/128x128/apps/halobattery.png"
+  - src: "./build/linux/icons/halobattery-256.png"
+    dst: "/usr/share/icons/hicolor/256x256/apps/halobattery.png"
+  - src: "./build/linux/halobattery.desktop"
+    dst: "/usr/share/applications/halobattery.desktop"
+  - src: "./build/linux/halobattery.rules"
+    dst: "/usr/lib/udev/rules.d/70-halobattery.rules"
+
+# GTK3 + WebKit2GTK 4.1: the stack most distros actually ship (the project
+# builds with -tags gtk3).
+depends:
+  - libgtk-3-0
+  - libwebkit2gtk-4.1-0
+
+# Distribution-specific overrides for different package formats
+overrides:
+  # RPM packages for Fedora / RHEL / AlmaLinux / Rocky Linux
+  rpm:
+    depends:
+      - gtk3
+      - webkit2gtk4.1
+
+  # Arch Linux packages
+  archlinux:
+    depends:
+      - gtk3
+      - webkit2gtk-4.1
+
+# scripts section to ensure desktop database is updated after install
+scripts:
+  postinstall: "./build/linux/nfpm/scripts/postinstall.sh"
+  # You can also add preremove, postremove if needed
+  # preremove: "./build/linux/nfpm/scripts/preremove.sh"
+  # postremove: "./build/linux/nfpm/scripts/postremove.sh"
+
+# If you build your app with -tags gtk3 (legacy WebKit2GTK 4.1 stack — supported through v3.0.x, removed in v3.1),
+# replace the depends/overrides above with these:
+#
+# depends:
+#   - libgtk-3-0
+#   - libwebkit2gtk-4.1-0
+# overrides:
+#   rpm:
+#     depends:
+#       - gtk3
+#       - webkit2gtk4.1
+#   archlinux:
+#     depends:
+#       - gtk3
+#       - webkit2gtk-4.1
+#
+# replaces:
+#   - foobar
+# provides:
+#   - bar
+# recommends:
+#   - whatever
+# suggests:
+#   - something-else
+# conflicts:
+#   - not-foo
+#   - not-bar
+# changelog: "changelog.yaml"

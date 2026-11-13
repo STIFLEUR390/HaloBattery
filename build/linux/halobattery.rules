@@ -1,0 +1,5 @@
+# HaloBattery needs read/write access to HID feature reports for Razer and
+# Logitech devices. Install with:
+#   sudo cp build/linux/halobattery.rules /etc/udev/rules.d/70-halobattery.rules
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", TAG+="uaccess"
