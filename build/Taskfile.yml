@@ -201,6 +201,8 @@ tasks:
       - "darwin/icons.icns"
       - "windows/icon.ico"
     cmds:
+      # the generator opens its output instead of creating it, so the folder must exist first
+      - mkdir -p darwin
       - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico -iconcomposerinput appicon.icon -macassetdir darwin
 
   dev:frontend:

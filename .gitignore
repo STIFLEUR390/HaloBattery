@@ -9,5 +9,5 @@ build/ios/xcode/overlay.json
 build/ios/xcode/gen/
 build/android/overlay.json
 build/android/gen/
-# macOS packaging assets are not used by this Linux-first port
+# generated icon assets (recreated by `wails3 task common:generate:icons`)
 build/darwin
