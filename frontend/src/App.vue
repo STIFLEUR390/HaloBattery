@@ -7,6 +7,7 @@ import { Devices as DevicesEvent } from '../bindings/events'
 const state = ref(null)
 const error = ref('')
 const refreshing = ref(false)
+const settingsOpen = ref(false)
 const now = ref(Date.now())
 
 let off = null
@@ -110,18 +111,24 @@ function toggleProvider(name, enabled) {
   queueSave()
 }
 
+function onKey(e) {
+  if (e.key === 'Escape') settingsOpen.value = false
+}
+
 onMounted(() => {
   load()
   off = Events.On(DevicesEvent, () => {
     load() // also refreshes the provider notes
   })
   tick = setInterval(() => (now.value = Date.now()), 15000)
+  window.addEventListener('keydown', onKey)
 })
 
 onUnmounted(() => {
   off?.()
   clearInterval(tick)
   clearTimeout(saveTimer)
+  window.removeEventListener('keydown', onKey)
 })
 </script>
 
@@ -134,7 +141,10 @@ onUnmounted(() => {
           {{ online }} online · {{ devices.length }} known · updated {{ ago(state.updated) }}
         </p>
       </div>
-      <button class="icon" :class="{ spin: refreshing }" title="Refresh" @click="refresh">⟳</button>
+      <div class="actions">
+        <button class="icon" title="Settings" aria-label="Settings" @click="settingsOpen = true">⚙</button>
+        <button class="icon" :class="{ spin: refreshing }" title="Refresh" @click="refresh">⟳</button>
+      </div>
     </header>
 
     <p v-if="error" class="error">{{ error }}</p>
@@ -181,41 +191,48 @@ onUnmounted(() => {
       <p v-for="note in state.notes" :key="note">{{ note }}</p>
     </section>
 
-    <section class="settings">
-      <h2>Settings</h2>
+    <div v-if="settingsOpen" class="modal" @click.self="settingsOpen = false">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <header class="sheet-head">
+          <h2 id="settings-title">Settings</h2>
+          <button class="icon" title="Close" aria-label="Close" @click="settingsOpen = false">✕</button>
+        </header>
 
-      <label class="row">
-        <span>Refresh interval <em>{{ cfg.interval }}s</em></span>
-        <input v-model.number="cfg.interval" type="range" min="5" max="600" step="5" @change="queueSave" />
-      </label>
+        <div class="settings">
+          <label class="row">
+            <span>Refresh interval <em>{{ cfg.interval }}s</em></span>
+            <input v-model.number="cfg.interval" type="range" min="5" max="600" step="5" @change="queueSave" />
+          </label>
 
-      <label class="row">
-        <span>Low battery alert <em>{{ cfg.low }}%</em></span>
-        <input v-model.number="cfg.low" type="range" min="0" max="80" step="1" @change="queueSave" />
-      </label>
+          <label class="row">
+            <span>Low battery alert <em>{{ cfg.low }}%</em></span>
+            <input v-model.number="cfg.low" type="range" min="0" max="80" step="1" @change="queueSave" />
+          </label>
 
-      <label class="row inline">
-        <span>Desktop notifications</span>
-        <input v-model="cfg.notify" type="checkbox" @change="queueSave" />
-      </label>
+          <label class="row inline">
+            <span>Desktop notifications</span>
+            <input v-model="cfg.notify" type="checkbox" @change="queueSave" />
+          </label>
 
-      <label class="row inline">
-        <span>Start with the session</span>
-        <input v-model="cfg.autostart" type="checkbox" @change="queueSave" />
-      </label>
+          <label class="row inline">
+            <span>Start with the session</span>
+            <input v-model="cfg.autostart" type="checkbox" @change="queueSave" />
+          </label>
 
-      <div v-if="state.providers.length" class="providers">
-        <p class="group-title">Sources</p>
-        <label v-for="p in state.providers" :key="p.name" class="row inline">
-          <span>{{ p.name }}</span>
-          <input
-            type="checkbox"
-            :checked="providerEnabled(p.name)"
-            @change="toggleProvider(p.name, $event.target.checked)"
-          />
-        </label>
+          <div v-if="state.providers.length" class="providers">
+            <p class="group-title">Sources</p>
+            <label v-for="p in state.providers" :key="p.name" class="row inline">
+              <span>{{ p.name }}</span>
+              <input
+                type="checkbox"
+                :checked="providerEnabled(p.name)"
+                @change="toggleProvider(p.name, $event.target.checked)"
+              />
+            </label>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
 
     <footer>
       <span>HaloBattery {{ state.version }} · {{ state.platform }}</span>
