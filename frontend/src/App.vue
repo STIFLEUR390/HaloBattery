@@ -446,7 +446,7 @@ onUnmounted(() => {
       <p v-for="note in state.notes" :key="note">{{ note }}</p>
     </section>
 
-    <div v-if="settingsOpen" class="modal" @click.self="settingsOpen = false">
+    <div v-if="settingsOpen" class="modal" @mousedown.self="settingsOpen = false">
       <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <header class="sheet-head">
           <h2 id="settings-title">{{ t('settings.title') }}</h2>
