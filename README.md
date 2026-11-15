@@ -23,23 +23,31 @@ et Logitech est réimplémenté en Go, sans hidapi ni cgo.
 
 ## Compiler
 
-Dépendances : Go ≥ 1.24, Node ≥ 20, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `gcc`.
+Dépendances : Go ≥ 1.24, Node ≥ 20, GTK ≥ 4.14 + webkitgtk-6.0, `gcc`.
+Sous Fedora 45 :
 
 ```bash
-go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+sudo dnf install gcc pkgconf-pkg-config glib2-devel gtk4-devel \
+  webkitgtk6.0-devel libsoup3-devel
+```
+
+Sous Debian/Ubuntu : `libgtk-4-dev`, `libwebkitgtk-6.0-dev`, `libsoup-3.0-dev`.
+
+```bash
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
 npm --prefix frontend install
 wails3 build                  # -> bin/halobattery
 wails3 dev                    # rechargement à chaud
 wails3 task linux:create:deb  # -> bin/halobattery.deb
 ```
 
-Wails v3 vise par défaut GTK4 + webkitgtk-6.0 (GTK ≥ 4.14), que la plupart des
-distributions n'ont pas encore. Le projet compile donc la variante GTK3 :
-`build/linux/Taskfile.yml` force `EXTRA_TAGS: gtk3`. Équivalent manuel :
+Wails v3 utilise par défaut GTK4 + webkitgtk-6.0, le backend retenu ici.
+Sur une distribution qui n'a que GTK3 (< 4.14), forcer la variante historique
+avec `EXTRA_TAGS: 'gtk3'` dans `build/linux/Taskfile.yml`. Équivalent manuel :
 
 ```bash
-go build -tags gtk3 -o bin/halobattery .
-go test -tags gtk3 ./internal/...
+go build -tags production -o bin/halobattery .
+go test ./internal/...
 ```
 
 ## Accès aux appareils HID

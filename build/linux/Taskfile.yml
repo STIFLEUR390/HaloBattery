@@ -10,9 +10,9 @@ vars:
   #
   # Password is stored securely in system keychain. Run: wails3 setup signing
 
-  # Wails v3 defaults to GTK4 + webkitgtk-6.0 (needs GTK 4.14). Most distros
-  # still ship GTK3 + webkit2gtk-4.1, so build that variant.
-  EXTRA_TAGS: 'gtk3'
+  # Wails v3 defaults to GTK4 + webkitgtk-6.0 (needs GTK 4.14), which is what
+  # we build against. On a GTK3-only distro (< 4.14), set EXTRA_TAGS: 'gtk3'.
+  EXTRA_TAGS: ''
 
   # Docker image for cross-compilation (used when building on non-Linux or no CC available)
   CROSS_IMAGE: wails-cross
