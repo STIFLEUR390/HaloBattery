@@ -177,7 +177,7 @@ onUnmounted(() => {
       <p class="hint">Check <code>/dev/hidraw*</code> permissions if a device should appear.</p>
     </section>
 
-    <section v-if="state.notes.length" class="notes">
+    <section v-if="state.notes?.length" class="notes">
       <p v-for="note in state.notes" :key="note">{{ note }}</p>
     </section>
 

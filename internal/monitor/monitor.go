@@ -162,7 +162,7 @@ func merge(all []device.Status) []device.Status {
 
 // Notes collects provider diagnostics worth showing in the settings pane.
 func (m *Monitor) Notes() []string {
-	var notes []string
+	notes := []string{}
 	for _, p := range m.providers {
 		if d, ok := p.(interface{ Diagnostics() string }); ok {
 			if text := d.Diagnostics(); text != "" {
