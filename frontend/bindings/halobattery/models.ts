@@ -21,10 +21,24 @@ export interface ProviderInfo {
  */
 export interface State {
     "devices": device$0.Status[] | null;
+    "hidden_devices": device$0.Status[] | null;
     "config": config$0.Config;
     "providers": ProviderInfo[] | null;
+    "history": { [_ in string]?: Trend } | null;
     "version": string;
     "platform": string;
     "updated": string;
     "notes": string[] | null;
+}
+
+/**
+ * Trend is the recorded battery curve of one device.
+ */
+export interface Trend {
+    "levels": number[] | null;
+
+    /**
+     * estimated runtime left, -1 when unknown
+     */
+    "minutes": number;
 }

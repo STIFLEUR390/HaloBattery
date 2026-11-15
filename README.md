@@ -1,6 +1,7 @@
 # HaloBattery (portage Go / Wails)
 
-Portage en Go du projet Python [HaloBattery](https://github.com/Lucas-Fer/HaloBattery) :
+Portage en Go du projet Python [HaloBattery](https://github.com/HeyOkay/HaloBattery) 1.17.0
+(fork communautaire de [Lucas-Fer/HaloBattery](https://github.com/Lucas-Fer/HaloBattery)) :
 niveaux de batterie des souris, claviers et casques sans fil, dans la barre système
 et dans une petite fenêtre de tableau de bord.
 
@@ -19,7 +20,13 @@ et Logitech est réimplémenté en Go, sans hidapi ni cgo.
 | Bluetooth via BlueZ (`org.bluez.Battery1`) — souris, claviers et casques BLE | ✅ |
 | Alertes batterie faible / pleine (notifications) | ✅ |
 | Intervalle, seuil, sources désactivables, démarrage auto | ✅ |
-| Icône par appareil, menu volant façon Windows 11, historique, mise à jour auto, i18n, renommage | ❌ (voir plus bas) |
+| Réglages dans une modale (⚙ ou entrée du menu) | ✅ |
+| Renommage des appareils (double-clic ou ✎) | ✅ |
+| Masquer / réafficher un appareil | ✅ |
+| Seuil d'alerte par appareil | ✅ |
+| Historique 24 h et autonomie estimée | ✅ |
+| Interface français / anglais, langue automatique | ✅ |
+| Icône par appareil, menu volant façon Windows 11, mise à jour auto | ❌ (voir plus bas) |
 
 ## Compiler
 
@@ -49,6 +56,21 @@ avec `EXTRA_TAGS: 'gtk3'` dans `build/linux/Taskfile.yml`. Équivalent manuel :
 go build -tags production -o bin/halobattery .
 go test ./internal/...
 ```
+
+## Réglages
+
+Tout vit dans `$XDG_CONFIG_HOME/HaloBattery` (par défaut `~/.config/HaloBattery`) :
+
+```
+config.json    intervalle, seuil global, notifications, démarrage auto,
+               sources désactivées, noms personnalisés, appareils masqués,
+               seuils par appareil, langue (auto, en, fr)
+history.json   un point toutes les 5 min par appareil, 24 h glissantes
+```
+
+L'historique sert à la courbe affichée sous chaque appareil et à l'autonomie
+estimée : la pente de décharge des 90 dernières minutes, extrapolée au niveau
+courant. Sans assez de recul (ou à 100 %), l'estimation est simplement masquée.
 
 ## Accès aux appareils HID
 
@@ -81,36 +103,47 @@ aucun outil Linux ne peut inventer le pourcentage.
 
 ```
 main.go                  fenêtre, icône de barre système, menu, --probe
-service.go               état exposé au frontend, alertes, sauvegarde config
+service.go               état exposé au frontend, renommage/masquage, alertes, config
 internal/hid             hidraw Linux pur Go (ioctl get/set feature), stubs ailleurs
 internal/providers/razer    protocole Razer (feature report 0x00, 90 octets)
 internal/providers/logitech HID++ 1.0 et 2.0, récepteurs, cache par slot
 internal/providers/bluez    D-Bus BlueZ (Battery1 des appareils Bluetooth connectés)
 internal/providers/upower   D-Bus UPower (niveau, état de charge, type)
 internal/monitor         boucle de polling, fusion et dédoublonnage des sources
+internal/history         historique 24 h par appareil, estimation d'autonomie
+internal/i18n            chaînes du menu, de l'infobulle et des notifications (en, fr)
 internal/icons           rendu PNG de l'anneau 64 px (4×4 supersampling)
-assets/logo.png          icône de l'application (reprise de docs/logo.png du projet d'origine)
 internal/config          config.json dans $XDG_CONFIG_HOME/HaloBattery
+assets/logo.png          icône de l'application (reprise de docs/logo.png du projet d'origine)
 ```
 
 Chaque source implémente `providers.Provider` (`Name()`, `Poll() []device.Status`).
 Ajouter un protocole = un paquet + une ligne dans `internal/monitor/providers_linux.go`.
+Le frontend porte ses propres traductions ; `internal/i18n` ne couvre que ce que Go
+affiche lui-même.
 
 ## Différences assumées avec l'original
 
 - **Une seule icône de barre système** avec la liste des appareils dans son menu,
   au lieu d'une icône par appareil : l'API tray de Wails v3 ne garantit pas
-  plusieurs icônes, et les barres Wayland sont déjà encombrées.
-- **Pas de reprise de l'installeur Inno Setup, du menu volant XAML, de l'historique,
-  du vérificateur de mises à jour ni des 6 traductions.** Ce sont des couches Windows
-  ou du confort ; le cœur (lecture des batteries, alertes, réglages) est là.
+  plusieurs icônes, et les barres Wayland sont déjà encombrées. Sous GNOME, il
+  faut l'extension AppIndicator pour voir cette icône.
+- **Pas de reprise de l'installeur Inno Setup, du menu volant XAML ni du
+  vérificateur de mises à jour.** Ce sont des couches Windows ou une
+  infrastructure de release ; le cœur (lecture, alertes, historique, réglages,
+  renommage) est là.
+- **Deux langues** (français, anglais) au lieu des six de l'original
+  (es, ja, zh-CN, zh-TW en plus). La langue suit `LANG` par défaut.
 - Le protocole Razer couvre les chemins feature-report utilisés par les souris,
   claviers et casques courants ; les modèles à protocole dédié (BlackShark 2020/V3,
-  certains casques PA) ne sont pas encore portés.
+  certains casques PA) ne sont pas encore portés. Les 30+ marques de l'original
+  (SteelSeries, Corsair, ASUS ROG, Sony, Xbox, 8BitDo…) restent hors périmètre.
 - UPower et BlueZ remplacent la découverte Bluetooth de l'original : tout ce que
   le système expose déjà remonte sans code spécifique. Là où Windows lisait le
   pourcentage dans le GATT, Linux le lit dans `org.bluez.Battery1` — quand
   l'appareil publie ce service.
+- L'autonomie estimée est une extrapolation locale de l'historique, pas le calcul
+  de l'original (qui tient compte des sessions d'usage).
 - Icône : `docs/logo.png` du dépôt d'origine, redimensionnée avec `magick` en
   `build/appicon.png` (1024), puis déclinée en `.ico`, `.icns` et PNG 128/256 px.
 

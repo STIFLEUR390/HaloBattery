@@ -8,5 +8,6 @@ export {
 
 export type {
     ProviderInfo,
-    State
+    State,
+    Trend
 } from "./models.js";

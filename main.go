@@ -15,6 +15,7 @@ import (
 
 	"halobattery/internal/config"
 	"halobattery/internal/device"
+	"halobattery/internal/i18n"
 	"halobattery/internal/icons"
 	"halobattery/internal/monitor"
 )
@@ -131,36 +132,41 @@ func runProbe() {
 }
 
 func buildTrayMenu(app *application.App, svc *Service) *application.Menu {
+	lang := svc.lang()
 	menu := app.NewMenu()
 	devs := svc.devices()
 	if len(devs) == 0 {
-		item := menu.Add("No device detected")
+		item := menu.Add(i18n.T(lang, "tray.no_device"))
 		item.SetEnabled(false)
 	}
 	for i, d := range devs {
 		if i >= 8 {
 			break
 		}
-		menu.Add(deviceLabel(d)).OnClick(func(*application.Context) { svc.ShowWindow() })
+		menu.Add(deviceLabel(d, lang)).OnClick(func(*application.Context) { svc.ShowWindow() })
 	}
 	menu.AddSeparator()
-	menu.Add("Open dashboard").OnClick(func(*application.Context) { svc.ShowWindow() })
-	menu.Add("Refresh now").OnClick(func(*application.Context) { svc.RefreshNow() })
+	menu.Add(i18n.T(lang, "tray.open")).OnClick(func(*application.Context) { svc.ShowWindow() })
+	menu.Add(i18n.T(lang, "tray.settings")).OnClick(func(*application.Context) {
+		svc.ShowWindow()
+		app.Event.Emit("open-settings", struct{}{})
+	})
+	menu.Add(i18n.T(lang, "tray.refresh")).OnClick(func(*application.Context) { svc.RefreshNow() })
 	menu.AddSeparator()
-	menu.Add("Quit HaloBattery").OnClick(func(*application.Context) { svc.Quit() })
+	menu.Add(i18n.T(lang, "tray.quit")).OnClick(func(*application.Context) { svc.Quit() })
 	return menu
 }
 
-func deviceLabel(d device.Status) string {
+func deviceLabel(d device.Status, lang string) string {
 	level := "--"
 	if d.Level != nil {
 		level = fmt.Sprintf("%d%%", *d.Level)
 	}
 	state := ""
 	if !d.Online {
-		state = " (asleep)"
+		state = " (" + i18n.T(lang, "tray.asleep") + ")"
 	} else if d.Charging {
-		state = " (charging)"
+		state = " (" + i18n.T(lang, "tray.charging") + ")"
 	}
 	return fmt.Sprintf("%s  %s%s", level, d.Name, state)
 }
@@ -190,7 +196,7 @@ func trayTooltip(svc *Service) string {
 			n++
 		}
 	}
-	return fmt.Sprintf("HaloBattery — %d device(s)", n)
+	return i18n.Tf(svc.lang(), "tray.tooltip", n)
 }
 
 func platform() string { return runtime.GOOS }

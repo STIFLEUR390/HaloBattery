@@ -11,20 +11,30 @@ import (
 
 	"halobattery/internal/config"
 	"halobattery/internal/device"
+	"halobattery/internal/history"
+	"halobattery/internal/i18n"
 	"halobattery/internal/monitor"
 )
 
-const version = "1.0.0-go"
+const version = "1.1.0-go"
 
 // State is everything the UI needs in one snapshot.
 type State struct {
-	Devices   []device.Status `json:"devices"`
-	Config    config.Config   `json:"config"`
-	Providers []ProviderInfo  `json:"providers"`
-	Version   string          `json:"version"`
-	Platform  string          `json:"platform"`
-	Updated   time.Time       `json:"updated"`
-	Notes     []string        `json:"notes"`
+	Devices       []device.Status  `json:"devices"`
+	HiddenDevices []device.Status  `json:"hidden_devices"`
+	Config        config.Config    `json:"config"`
+	Providers     []ProviderInfo   `json:"providers"`
+	History       map[string]Trend `json:"history"`
+	Version       string           `json:"version"`
+	Platform      string           `json:"platform"`
+	Updated       time.Time        `json:"updated"`
+	Notes         []string         `json:"notes"`
+}
+
+// Trend is the recorded battery curve of one device.
+type Trend struct {
+	Levels  []int `json:"levels"`
+	Minutes int   `json:"minutes"` // estimated runtime left, -1 when unknown
 }
 
 // ProviderInfo describes one battery source for the settings pane.
@@ -40,7 +50,8 @@ type Service struct {
 	store    *config.Store
 	notifier *notifications.NotificationService
 
-	mon *monitor.Monitor
+	mon  *monitor.Monitor
+	hist *history.Store
 
 	mu        sync.Mutex
 	cfg       config.Config
@@ -83,6 +94,9 @@ func (s *Service) start() {
 	}
 	s.started = true
 	cfg := s.cfg
+	if s.hist == nil {
+		s.hist = history.DefaultStore()
+	}
 	s.mu.Unlock()
 
 	s.mon = monitor.New(monitor.DefaultProviders(), time.Duration(cfg.Interval)*time.Second, s.onDevices)
@@ -105,7 +119,55 @@ func (s *Service) devices() []device.Status {
 	if s.mon == nil {
 		return nil
 	}
-	return s.mon.Devices()
+	s.mu.Lock()
+	cfg := s.cfg
+	s.mu.Unlock()
+	return visible(cfg, s.mon.Devices())
+}
+
+// visible applies the custom names and drops the devices the user hid.
+func visible(cfg config.Config, devs []device.Status) []device.Status {
+	hidden := map[string]bool{}
+	for _, key := range cfg.Hidden {
+		hidden[key] = true
+	}
+	out := make([]device.Status, 0, len(devs))
+	for _, d := range devs {
+		if hidden[d.Key] {
+			continue
+		}
+		if name := cfg.Names[d.Key]; name != "" {
+			d.Name = name
+		}
+		out = append(out, d)
+	}
+	return out
+}
+
+// hiddenOnly returns the devices the user hid, for the settings pane.
+func hiddenOnly(cfg config.Config, devs []device.Status) []device.Status {
+	hidden := map[string]bool{}
+	for _, key := range cfg.Hidden {
+		hidden[key] = true
+	}
+	out := []device.Status{}
+	for _, d := range devs {
+		if !hidden[d.Key] {
+			continue
+		}
+		if name := cfg.Names[d.Key]; name != "" {
+			d.Name = name
+		}
+		out = append(out, d)
+	}
+	return out
+}
+
+// lang is the concrete interface language.
+func (s *Service) lang() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return i18n.Resolve(s.cfg.Language)
 }
 
 // low returns the low-battery threshold.
@@ -128,8 +190,12 @@ func (s *Service) onDevices(devs []device.Status) {
 	cfg := s.cfg
 	s.mu.Unlock()
 
-	s.app.Event.Emit("devices", devs)
-	s.alert(devs, cfg)
+	if s.hist != nil {
+		s.hist.Add(devs)
+	}
+	shown := visible(cfg, devs)
+	s.app.Event.Emit("devices", shown)
+	s.alert(shown, cfg)
 	if s.refreshUI != nil {
 		s.refreshUI()
 	}
@@ -140,19 +206,26 @@ func (s *Service) alert(devs []device.Status, cfg config.Config) {
 	if !cfg.Notify || s.notifier == nil {
 		return
 	}
+	lang := i18n.Resolve(cfg.Language)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, d := range devs {
 		if d.Level == nil {
 			continue
 		}
+		low := cfg.Low
+		if v, ok := cfg.Alerts[d.Key]; ok {
+			low = v
+		}
 		level := *d.Level
-		if level <= cfg.Low && !d.Charging {
+		if level <= low && !d.Charging {
 			if !s.lowSent[d.Key] {
 				s.lowSent[d.Key] = true
-				s.notify(d.Key+"-low", "Battery low", fmt.Sprintf("%s: %d%%", d.Name, level))
+				s.notify(d.Key+"-low",
+					i18n.T(lang, "notify.low_title"),
+					i18n.Tf(lang, "notify.low_body", d.Name, level))
 			}
-		} else if level > cfg.Low+5 || d.Charging {
+		} else if level > low+5 || d.Charging {
 			s.lowSent[d.Key] = false
 		}
 
@@ -163,7 +236,9 @@ func (s *Service) alert(devs []device.Status, cfg config.Config) {
 			s.wasBelow[d.Key] = false
 			if !s.fullSent[d.Key] {
 				s.fullSent[d.Key] = true
-				s.notify(d.Key+"-full", "Fully charged", d.Name)
+				s.notify(d.Key+"-full",
+					i18n.T(lang, "notify.full_title"),
+					i18n.Tf(lang, "notify.full_body", d.Name))
 			}
 		}
 		if !d.Charging {
@@ -183,12 +258,12 @@ func (s *Service) notify(id, title, body string) {
 // GetState returns the current snapshot for the UI.
 func (s *Service) GetState() State {
 	s.mu.Lock()
-	cfg, updated := s.cfg, s.updated
+	cfg, updated, histStore := s.cfg, s.updated, s.hist
 	s.mu.Unlock()
 
-	devs := []device.Status{}
+	all := []device.Status{}
 	if s.mon != nil {
-		devs = s.mon.Devices()
+		all = s.mon.Devices()
 	}
 	providers := []ProviderInfo{}
 	if s.mon != nil {
@@ -196,8 +271,20 @@ func (s *Service) GetState() State {
 			providers = append(providers, ProviderInfo{Name: name, Enabled: !contains(cfg.Disabled, name)})
 		}
 	}
+	devs := []device.Status{}
+	if s.mon != nil {
+		devs = visible(cfg, all)
+	}
+	trends := map[string]Trend{}
+	for _, d := range devs {
+		levels, minutes := histStore.Trend(d.Key)
+		if len(levels) > 0 {
+			trends[d.Key] = Trend{Levels: levels, Minutes: minutes}
+		}
+	}
 	return State{
-		Devices: devs, Config: cfg, Providers: providers,
+		Devices: devs, HiddenDevices: hiddenOnly(cfg, all), Config: cfg,
+		Providers: providers, History: trends,
 		Version: version, Platform: platform(), Updated: updated,
 		Notes: s.notes(),
 	}

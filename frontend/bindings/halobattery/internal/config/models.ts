@@ -25,4 +25,24 @@ export interface Config {
      * provider names switched off
      */
     "disabled_providers": string[] | null;
+
+    /**
+     * device key -> custom name
+     */
+    "names"?: { [_ in string]?: string } | null;
+
+    /**
+     * device keys kept out of the tray and dashboard
+     */
+    "hidden"?: string[] | null;
+
+    /**
+     * device key -> low threshold override
+     */
+    "alerts"?: { [_ in string]?: number } | null;
+
+    /**
+     * auto, en or fr
+     */
+    "language": string;
 }
