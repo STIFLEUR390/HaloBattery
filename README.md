@@ -30,7 +30,7 @@ et Logitech est réimplémenté en Go, sans hidapi ni cgo.
 
 ## Compiler
 
-Dépendances : Go ≥ 1.24, Node ≥ 20, GTK ≥ 4.14 + webkitgtk-6.0, `gcc`.
+Dépendances : Go ≥ 1.24, [Bun](https://bun.sh) ≥ 1.2, GTK ≥ 4.14 + webkitgtk-6.0, `gcc`.
 Sous Fedora 45 :
 
 ```bash
@@ -42,11 +42,15 @@ Sous Debian/Ubuntu : `libgtk-4-dev`, `libwebkitgtk-6.0-dev`, `libsoup-3.0-dev`.
 
 ```bash
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
-npm --prefix frontend install
+bun install --cwd frontend    # dépendances du frontend
 wails3 build                  # -> bin/halobattery
 wails3 dev                    # rechargement à chaud
 wails3 task linux:create:deb  # -> bin/halobattery.deb
 ```
+
+Les tâches Wails utilisent Bun par défaut (`PACKAGE_MANAGER` dans
+`Taskfile.yml`) ; `wails3 task ... PACKAGE_MANAGER=npm` force l'ancien
+gestionnaire si besoin.
 
 Wails v3 utilise par défaut GTK4 + webkitgtk-6.0, le backend retenu ici.
 Sur une distribution qui n'a que GTK3 (< 4.14), forcer la variante historique
